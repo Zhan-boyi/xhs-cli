@@ -24,9 +24,10 @@ CLI post command
 Publishing relies on browser session cookies. The CLI must not bypass login,
 captcha, or security verification.
 
-Session bootstrap should tolerate normal homepage slowness. The client uses a
-longer homepage navigation timeout before publishing because the creator flow
-depends on the browser context having cookies settled first.
+Session bootstrap should tolerate normal homepage slowness. The homepage visit
+is best-effort: if it times out, the client logs a warning and continues to the
+target page. The target page still owns the real login/security verification
+result.
 
 The user-visible behavior is:
 

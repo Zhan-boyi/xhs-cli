@@ -324,13 +324,19 @@ class XhsClient:
         self._page.context.add_cookies(cookies)
 
         # Navigate to homepage to establish session
-        self._goto(
-            "https://www.xiaohongshu.com",
-            timeout=45000,
-            wait_min=1,
-            wait_max=2,
-            context="establishing browser session",
-        )
+        try:
+            self._goto(
+                "https://www.xiaohongshu.com",
+                timeout=45000,
+                wait_min=1,
+                wait_max=2,
+                context="establishing browser session",
+            )
+        except Exception as exc:
+            logger.warning(
+                "Homepage session bootstrap failed; continuing to target page: %s",
+                exc,
+            )
         logger.info("Browser ready.")
 
     def close(self):
