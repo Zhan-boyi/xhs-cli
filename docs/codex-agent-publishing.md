@@ -13,25 +13,25 @@ Agent 可以围绕这条命令做内容生产、草稿管理、飞书通知和�
 
 ## 安装长期版本
 
-当前长期改动在 fork 分支：
+当前长期改动固定在 fork tag：
 
 ```bash
-pip install "git+https://github.com/Zhan-boyi/xhs-cli.git@codex/creator-post-hardening"
+pip install "git+https://github.com/Zhan-boyi/xhs-cli.git@v0.1.5"
 ```
 
 如果使用 `pipx`：
 
 ```bash
-pipx install "git+https://github.com/Zhan-boyi/xhs-cli.git@codex/creator-post-hardening"
+pipx install "git+https://github.com/Zhan-boyi/xhs-cli.git@v0.1.5"
 ```
 
 如果使用 `uv tool`：
 
 ```bash
-uv tool install "git+https://github.com/Zhan-boyi/xhs-cli.git@codex/creator-post-hardening"
+uv tool install "git+https://github.com/Zhan-boyi/xhs-cli.git@v0.1.5"
 ```
 
-这个分支会把 Playwright 限制在 `<1.60`。本机验证时，Playwright 1.60
+这个版本会把 Playwright 限制在 `<1.60`。本机验证时，Playwright 1.60
 和当前 Camoufox 组合出现过驱动兼容问题，1.55 路线可正常完成发布。
 
 ## 发布前条件
