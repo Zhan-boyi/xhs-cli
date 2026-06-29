@@ -29,6 +29,10 @@ is best-effort: if it times out, the client logs a warning and continues to the
 target page. The target page still owns the real login/security verification
 result.
 
+The creator publish page is a large single-page application, so navigation waits
+for the request to commit and then relies on creator-page selectors for readiness
+instead of requiring the browser `domcontentloaded` event to arrive quickly.
+
 The user-visible behavior is:
 
 - if normal saved cookies are missing, ask the user to run `xhs login`;

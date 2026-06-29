@@ -1217,7 +1217,8 @@ class XhsClient:
         logger.info("Navigating to publish page: %s", publish_url)
         self._goto(
             publish_url,
-            timeout=30000,
+            timeout=90000,
+            wait_until="commit",
             wait_min=3,
             wait_max=5,
             context="loading creator publish page",
