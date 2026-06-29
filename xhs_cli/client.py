@@ -326,7 +326,7 @@ class XhsClient:
         # Navigate to homepage to establish session
         self._goto(
             "https://www.xiaohongshu.com",
-            timeout=20000,
+            timeout=45000,
             wait_min=1,
             wait_max=2,
             context="establishing browser session",

@@ -6,6 +6,7 @@
 CLI post command
   -> resolve image paths
   -> XhsClient.publish_note(...)
+  -> establish a Xiaohongshu browser session
   -> open https://creator.xiaohongshu.com/publish/publish
   -> ensure creator login is not required
   -> switch to "上传图文"
@@ -22,6 +23,10 @@ CLI post command
 
 Publishing relies on browser session cookies. The CLI must not bypass login,
 captcha, or security verification.
+
+Session bootstrap should tolerate normal homepage slowness. The client uses a
+longer homepage navigation timeout before publishing because the creator flow
+depends on the browser context having cookies settled first.
 
 The user-visible behavior is:
 
@@ -79,4 +84,3 @@ continues without failing.
 
 `note_id` is best-effort. A publish can be successful even when the creator page
 does not expose a parseable note id.
-
