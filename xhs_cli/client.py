@@ -147,6 +147,14 @@ class XhsClient:
 
     def _click_creator_image_tab(self) -> None:
         """Switch creator publish page from video mode to image-note mode."""
+        try:
+            self._page.wait_for_function(
+                "() => document.body && document.body.innerText.includes('上传图文')",
+                timeout=45000,
+            )
+        except Exception:
+            logger.debug("Creator image tab text was not visible before click attempt.")
+
         clicked = False
         try:
             clicked = bool(
@@ -184,7 +192,29 @@ class XhsClient:
         if not clicked:
             # Fallback for the current desktop creator layout.
             self._page.mouse.click(420, 102)
-        self._human_wait(1, 2)
+
+        try:
+            self._page.wait_for_function(
+                """() => (
+                    document.body &&
+                    (
+                        document.body.innerText.includes('上传图片') ||
+                        Array.from(document.querySelectorAll('input[type=file]'))
+                            .some(el => {
+                                const accept = (el.getAttribute('accept') || '').toLowerCase();
+                                return accept.includes('.png') ||
+                                    accept.includes('.jpg') ||
+                                    accept.includes('.jpeg') ||
+                                    accept.includes('.webp') ||
+                                    accept.includes('image');
+                            })
+                    )
+                )""",
+                timeout=20000,
+            )
+        except Exception:
+            logger.debug("Creator image upload area was not ready after tab click.")
+            self._human_wait(1, 2)
 
     def _find_creator_image_file_input(self):
         """Find the image upload input on the creator publish page."""

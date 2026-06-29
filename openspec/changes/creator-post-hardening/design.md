@@ -32,6 +32,8 @@ result.
 The creator publish page is a large single-page application, so navigation waits
 for the request to commit and then relies on creator-page selectors for readiness
 instead of requiring the browser `domcontentloaded` event to arrive quickly.
+The image-note tab click waits for the "上传图文" tab to mount, then waits for
+the image upload area or an image file input before continuing.
 
 The user-visible behavior is:
 
