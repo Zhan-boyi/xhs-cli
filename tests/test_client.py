@@ -44,6 +44,15 @@ class _FakeWaitPage:
         return self._body
 
 
+class _FakeFileInput:
+    def __init__(self, accept: str | None):
+        self._accept = accept
+
+    def get_attribute(self, name: str):
+        assert name == "accept"
+        return self._accept
+
+
 class TestGetNoteComments:
     def test_extracts_note_comments_and_applies_max_limit(self):
         client = XhsClient({})
@@ -77,7 +86,10 @@ class TestGetNoteComments:
 
 class TestPublishResultHeuristic:
     def test_success_indicator_in_page_text(self):
-        assert XhsClient._is_publish_success("发布成功", "https://creator.xiaohongshu.com/publish/publish")
+        assert XhsClient._is_publish_success(
+            "发布成功",
+            "https://creator.xiaohongshu.com/publish/publish",
+        )
 
     def test_success_when_redirected_away_from_publish_url(self):
         assert XhsClient._is_publish_success(
@@ -113,6 +125,21 @@ class TestPublishResultHeuristic:
             "https://creator.xiaohongshu.com/publish/success?noteId=xyz987"
         )
         assert note_id == "xyz987"
+
+    def test_image_file_input_accepts_image_formats(self):
+        assert XhsClient._is_image_file_input(_FakeFileInput(".jpg,.jpeg,.png,.webp"))
+
+    def test_image_file_input_rejects_video_formats(self):
+        assert not XhsClient._is_image_file_input(_FakeFileInput(".mp4,.mov"))
+
+    def test_image_file_input_accepts_empty_accept_as_fallback(self):
+        assert XhsClient._is_image_file_input(_FakeFileInput(""))
+
+    def test_ai_declaration_auto_detects_ai_text(self):
+        assert XhsClient._should_declare_ai_generated("AI 工作流", "正文")
+
+    def test_ai_declaration_does_not_trigger_for_regular_text(self):
+        assert not XhsClient._should_declare_ai_generated("旅行日记", "今天去了海边")
 
 
 class TestGetUserInfoFallback:

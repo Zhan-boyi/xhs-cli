@@ -187,7 +187,22 @@ xhs favorites --max 10
 ```bash
 xhs post "标题" --image photo1.jpg --image photo2.jpg --content "正文内容"
 xhs post "标题" --image photo1.jpg --content "正文内容" --json
+xhs post "AI 工作流" --image cover.png --content "正文内容" --ai-generated --json
 ```
+
+发布使用小红书创作者中心页面。除了普通 `www.xiaohongshu.com` 登录态，
+还需要创作者中心可用的登录态；如果发布时提示 creator login required，请先在
+浏览器打开 `https://creator.xiaohongshu.com` 完成登录，再重新运行 `xhs login`
+同步本地 cookie。
+
+`--ai-generated/--no-ai-generated` 用于显式声明是否包含 AI 生成内容。省略时，
+CLI 会根据标题和正文中的常见 AI 关键词自动尝试选择创作者中心里的
+“笔记含AI合成内容”声明；如果页面没有该控件，发布流程会继续执行。
+
+面向 Agent 的长期发布流程见
+[`docs/codex-agent-publishing.md`](docs/codex-agent-publishing.md)。
+本次创作者中心发布适配的规格文档见
+[`openspec/changes/creator-post-hardening`](openspec/changes/creator-post-hardening)。
 
 ### 其他
 

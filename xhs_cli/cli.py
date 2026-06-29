@@ -951,8 +951,19 @@ def favorites(max_count: int, as_json: bool):
 @click.option("--image", "images", multiple=True, required=True,
               type=click.Path(exists=True), help="Image file to upload (can be repeated)")
 @click.option("--content", default="", help="Note body/description text")
+@click.option(
+    "--ai-generated/--no-ai-generated",
+    default=None,
+    help="Declare whether the note contains AI-generated content (auto-detect when omitted)",
+)
 @click.option("--json", "as_json", is_flag=True, help="Output publish result JSON")
-def post(title: str, images: tuple[str, ...], content: str, as_json: bool):
+def post(
+    title: str,
+    images: tuple[str, ...],
+    content: str,
+    ai_generated: bool | None,
+    as_json: bool,
+):
     """Publish a new image note.
 
     \b
@@ -976,6 +987,7 @@ def post(title: str, images: tuple[str, ...], content: str, as_json: bool):
                 title=title,
                 image_paths=abs_paths,
                 content=content,
+                ai_generated=ai_generated,
                 return_detail=True,
             )
             if isinstance(result, dict):

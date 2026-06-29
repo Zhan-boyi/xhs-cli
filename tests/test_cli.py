@@ -47,6 +47,7 @@ class TestCliHelp:
         assert result.exit_code == 0
         assert "--image" in result.output
         assert "--content" in result.output
+        assert "--ai-generated" in result.output
         assert "--json" in result.output
 
     def test_favorites_help(self, runner):
@@ -308,6 +309,15 @@ class _FakeDataClient:
         return ["bad-user", {"nickname": "bob", "userId": "u1"}]
 
 
+class _FakePublishClient:
+    def __init__(self):
+        self.calls = []
+
+    def publish_note(self, **kwargs):
+        self.calls.append(kwargs)
+        return {"success": True, "note_id": "note123", "url": "https://example.com/note123"}
+
+
 @contextmanager
 def _fake_client_ctx(client):
     yield client
@@ -326,3 +336,59 @@ class TestCliRobustness:
         result = runner.invoke(cli, ["followers", "u123"])
         assert result.exit_code == 0
         assert "Followers" in result.output
+
+    def test_post_passes_ai_generated_flag(self, runner, monkeypatch, tmp_path):
+        image = tmp_path / "cover.png"
+        image.write_bytes(b"png")
+        fake_client = _FakePublishClient()
+        monkeypatch.setattr(cli_module, "_get_client", lambda: _fake_client_ctx(fake_client))
+
+        result = runner.invoke(
+            cli,
+            [
+                "post",
+                "AI 标题",
+                "--image",
+                str(image),
+                "--content",
+                "正文",
+                "--ai-generated",
+                "--json",
+            ],
+        )
+
+        assert result.exit_code == 0
+        assert fake_client.calls[0]["ai_generated"] is True
+        assert fake_client.calls[0]["content"] == "正文"
+
+    def test_post_passes_no_ai_generated_flag(self, runner, monkeypatch, tmp_path):
+        image = tmp_path / "cover.png"
+        image.write_bytes(b"png")
+        fake_client = _FakePublishClient()
+        monkeypatch.setattr(cli_module, "_get_client", lambda: _fake_client_ctx(fake_client))
+
+        result = runner.invoke(
+            cli,
+            [
+                "post",
+                "普通标题",
+                "--image",
+                str(image),
+                "--no-ai-generated",
+                "--json",
+            ],
+        )
+
+        assert result.exit_code == 0
+        assert fake_client.calls[0]["ai_generated"] is False
+
+    def test_post_defaults_ai_generated_to_auto_detect(self, runner, monkeypatch, tmp_path):
+        image = tmp_path / "cover.png"
+        image.write_bytes(b"png")
+        fake_client = _FakePublishClient()
+        monkeypatch.setattr(cli_module, "_get_client", lambda: _fake_client_ctx(fake_client))
+
+        result = runner.invoke(cli, ["post", "标题", "--image", str(image), "--json"])
+
+        assert result.exit_code == 0
+        assert fake_client.calls[0]["ai_generated"] is None

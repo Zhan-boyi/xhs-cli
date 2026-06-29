@@ -116,7 +116,14 @@ xhs favorites --json
 ```bash
 xhs post "标题" --image photo1.jpg --image photo2.jpg --content "正文"
 xhs post "标题" --image photo1.jpg --content "正文" --json
+xhs post "AI 工作流" --image cover.png --content "正文" --ai-generated --json
 ```
+
+Posting uses the creator-center page. If publishing reports that creator login
+is required, open `https://creator.xiaohongshu.com` in the local browser, finish
+login, then run `xhs login` to refresh saved cookies. Use
+`--ai-generated/--no-ai-generated` to explicitly control the creator-center AI
+content declaration; when omitted, xhs-cli auto-detects common AI keywords.
 
 ### Account
 
@@ -166,4 +173,3 @@ xhs read <note_id> --comments --json
 - Do not ask users to share raw cookie values in chat logs.
 - Prefer auto-extraction via `xhs login` over manual cookie input.
 - If auth fails, ask the user to re-login via `xhs login`.
-

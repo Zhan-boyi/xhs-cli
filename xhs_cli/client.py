@@ -118,6 +118,195 @@ class XhsClient:
             return ""
         return str(note_id or "")
 
+    @staticmethod
+    def _is_image_file_input(el) -> bool:
+        """Return whether a file input is suitable for image-note upload."""
+        try:
+            accept = (el.get_attribute("accept") or "").lower()
+        except Exception:
+            accept = ""
+        if not accept:
+            return True
+        image_markers = ("image", ".png", ".jpg", ".jpeg", ".webp")
+        video_markers = ("video", ".mp4", ".mov")
+        return any(marker in accept for marker in image_markers) and not any(
+            marker in accept for marker in video_markers
+        )
+
+    @staticmethod
+    def _should_declare_ai_generated(title: str, content: str) -> bool:
+        """Infer whether creator-center AI content declaration should be selected."""
+        text = f"{title}\n{content}"
+        return bool(re.search(r"\bAI\b|AIGC|人工智能|AI合成|合成内容", text, re.I))
+
+    def _is_creator_login_page(self) -> bool:
+        """Return whether current page/frame is asking for creator login."""
+        urls = [self._page.url or ""]
+        urls.extend((frame.url or "") for frame in self._page.frames)
+        return any("creator.xiaohongshu.com/login" in url.lower() for url in urls)
+
+    def _click_creator_image_tab(self) -> None:
+        """Switch creator publish page from video mode to image-note mode."""
+        clicked = False
+        try:
+            clicked = bool(
+                self._page.evaluate(
+                    """() => {
+                        const candidates = Array.from(document.querySelectorAll('*'))
+                            .map(el => {
+                                const text = (el.innerText || el.textContent || '').trim();
+                                const r = el.getBoundingClientRect();
+                                const style = getComputedStyle(el);
+                                return {el, text, r, tag: el.tagName, style};
+                            })
+                            .filter(o => (
+                                o.text.includes('上传图文') &&
+                                !['HTML', 'BODY'].includes(o.tag) &&
+                                o.r.width > 0 &&
+                                o.r.height > 0 &&
+                                o.r.x >= 0 &&
+                                o.r.y >= 0 &&
+                                o.r.y < window.innerHeight &&
+                                (o.r.width * o.r.height) < 80000 &&
+                                o.style.visibility !== 'hidden' &&
+                                o.style.display !== 'none'
+                            ))
+                            .sort((a, b) => (a.r.width * a.r.height) - (b.r.width * b.r.height));
+                        if (!candidates.length) return false;
+                        candidates[0].el.click();
+                        return true;
+                    }"""
+                )
+            )
+        except Exception:
+            clicked = False
+
+        if not clicked:
+            # Fallback for the current desktop creator layout.
+            self._page.mouse.click(420, 102)
+        self._human_wait(1, 2)
+
+    def _find_creator_image_file_input(self):
+        """Find the image upload input on the creator publish page."""
+        file_input_selectors = [
+            'input[type="file"][accept*=".png"]',
+            'input[type="file"][accept*=".jpg"]',
+            'input[type="file"][accept*=".jpeg"]',
+            'input[type="file"][accept*=".webp"]',
+            'input[accept*="image"]',
+            'input[accept*="image/*"]',
+            ".upload-input",
+            'input[type="file"]',
+            '[type="file"]',
+            "#upload-input",
+        ]
+
+        for sel in file_input_selectors:
+            el = self._page.query_selector(sel)
+            if el and self._is_image_file_input(el):
+                return el
+
+        for frame in self._page.frames:
+            for sel in file_input_selectors:
+                try:
+                    el = frame.query_selector(sel)
+                except Exception:
+                    el = None
+                if el and self._is_image_file_input(el):
+                    return el
+        return None
+
+    def _maybe_select_ai_declaration(
+        self,
+        title: str,
+        content: str,
+        ai_generated: bool | None,
+    ) -> bool:
+        """Select creator-center AI content declaration when requested or inferred."""
+        should_select = (
+            self._should_declare_ai_generated(title, content)
+            if ai_generated is None
+            else ai_generated
+        )
+        if not should_select:
+            return False
+        try:
+            declaration = self._page.query_selector("text=添加内容类型声明")
+            if declaration:
+                declaration.click()
+                self._human_wait(0.5, 1)
+                ai_option = self._page.query_selector("text=笔记含AI合成内容")
+                if ai_option:
+                    ai_option.click()
+                    self._human_wait(0.5, 1)
+                    return True
+        except Exception:
+            logger.debug("AI content declaration control was not selectable.")
+        return False
+
+    def _click_publish_followup_if_present(self) -> bool:
+        """Click common second-step publish confirmation buttons if visible."""
+        selectors = [
+            'button:has-text("确认发布")',
+            'button:has-text("继续发布")',
+            'button:has-text("仍要发布")',
+            'button:has-text("确定")',
+            '[role="button"]:has-text("确认发布")',
+            '[role="button"]:has-text("继续发布")',
+            '[role="button"]:has-text("仍要发布")',
+            '[role="button"]:has-text("确定")',
+        ]
+        for sel in selectors:
+            try:
+                followup = self._page.query_selector(sel)
+            except Exception:
+                followup = None
+            if followup:
+                followup.click()
+                return True
+        return False
+
+    def _click_creator_publish_button(self) -> bool:
+        """Click the creator publish button, including current xhs-publish-btn."""
+        custom_publish = self._page.query_selector("xhs-publish-btn")
+        if custom_publish:
+            rect = custom_publish.evaluate(
+                """el => {
+                    const r = el.getBoundingClientRect();
+                    return {x: r.x, y: r.y, width: r.width, height: r.height};
+                }"""
+            )
+            if rect and rect.get("width") and rect.get("height"):
+                x = rect["x"] + rect["width"] * 0.592
+                y = rect["y"] + rect["height"] * 0.49
+                self._page.mouse.click(x, y)
+                return True
+
+        publish_selectors = [
+            'button:has-text("发布")',
+            '.publishBtn',
+            '[class*="publish-btn"]',
+            'button[class*="submit"]',
+            'button.css-k01sra',
+        ]
+        for sel in publish_selectors:
+            publish_btn = self._page.query_selector(sel)
+            if publish_btn:
+                publish_btn.click()
+                return True
+        return False
+
+    def _current_publish_result(self) -> dict[str, str | bool]:
+        """Return current publish success details."""
+        page_text = self._page.text_content("body") or ""
+        current_url = self._page.url
+        note_id = self._extract_note_id_from_url(current_url) or self._extract_note_id_from_page()
+        return {
+            "success": self._is_publish_success(page_text, current_url, note_id),
+            "note_id": note_id,
+            "url": current_url,
+        }
+
     def start(self):
         """Launch camoufox and inject cookies."""
         from camoufox.sync_api import Camoufox
@@ -986,6 +1175,7 @@ class XhsClient:
         title: str,
         image_paths: list[str],
         content: str = "",
+        ai_generated: bool | None = None,
         return_detail: bool = False,
     ) -> bool | dict[str, str | bool]:
         """Publish a new image note on Xiaohongshu.
@@ -998,6 +1188,9 @@ class XhsClient:
             title: Note title (required).
             image_paths: List of absolute paths to image files.
             content: Optional note body/description text.
+            ai_generated: Whether to declare AI-generated content. When None,
+                xhs-cli auto-detects common AI keywords and selects the
+                creator-center AI declaration when available.
         """
         import os
 
@@ -1005,6 +1198,14 @@ class XhsClient:
         for path in image_paths:
             if not os.path.isfile(path):
                 raise FileNotFoundError(f"Image not found: {path}")
+
+        # The creator console's publish footer is easiest to target at its
+        # desktop breakpoint. Smaller viewports can leave xhs-publish-btn
+        # partially off-screen.
+        try:
+            self._page.set_viewport_size({"width": 1728, "height": 1023})
+        except Exception:
+            pass
 
         publish_url = "https://creator.xiaohongshu.com/publish/publish"
         logger.info("Navigating to publish page: %s", publish_url)
@@ -1017,41 +1218,15 @@ class XhsClient:
         )
 
         # Creator publishing may require an additional login session.
-        for frame in self._page.frames:
-            frame_url = (frame.url or "").lower()
-            if "creator.xiaohongshu.com/login" in frame_url:
-                raise LoginError(
-                    "Creator platform login required for publishing. "
-                    "Please log in at https://creator.xiaohongshu.com first."
-                )
+        if self._is_creator_login_page():
+            raise LoginError(
+                "Creator platform login required for publishing. "
+                "Please log in at https://creator.xiaohongshu.com first."
+            )
 
         # Step 1: Upload images via file input.
         # The creator page has a hidden <input type="file"> for image upload.
-        file_input_selectors = [
-            'input[type="file"]',
-            '[type="file"]',
-            'input[accept*="image"]',
-            'input[accept*="image/*"]',
-            '.upload-input',
-            '#upload-input',
-        ]
-
-        def _find_file_input():
-            # Search main page first
-            for sel in file_input_selectors:
-                el = self._page.query_selector(sel)
-                if el:
-                    return el
-            # Then search all iframes (creator console occasionally renders in frame)
-            for frame in self._page.frames:
-                for sel in file_input_selectors:
-                    try:
-                        el = frame.query_selector(sel)
-                    except Exception:
-                        el = None
-                    if el:
-                        return el
-            return None
+        self._click_creator_image_tab()
 
         file_input = None
         # Wait/retry loop for dynamic mount timing
@@ -1064,7 +1239,7 @@ class XhsClient:
                 )
             except Exception:
                 pass
-            file_input = _find_file_input()
+            file_input = self._find_creator_image_file_input()
             if file_input:
                 break
             self._human_wait(0.5, 1.2)
@@ -1086,7 +1261,7 @@ class XhsClient:
 
             # Try again to find file input
             for _ in range(4):
-                file_input = _find_file_input()
+                file_input = self._find_creator_image_file_input()
                 if file_input:
                     break
                 self._human_wait(0.5, 1.2)
@@ -1163,7 +1338,10 @@ class XhsClient:
                     if tag in ("textarea", "input"):
                         content_el.fill(content)
                     else:
-                        self._page.keyboard.type(content)
+                        try:
+                            content_el.fill(content)
+                        except Exception:
+                            self._page.keyboard.type(content)
                     logger.info("Content filled (%d chars)", len(content))
                     break
             else:
@@ -1171,46 +1349,43 @@ class XhsClient:
 
         self._human_wait(1, 2)
 
+        self._maybe_select_ai_declaration(title, content, ai_generated)
+        try:
+            self._page.keyboard.press("Escape")
+            self._page.mouse.click(1500, 100)
+        except Exception:
+            pass
+        self._human_wait(0.5, 1)
+
         # Step 4: Click publish button.
-        publish_selectors = [
-            'button:has-text("发布")',
-            '.publishBtn',
-            '[class*="publish-btn"]',
-            'button[class*="submit"]',
-            'button.css-k01sra',
-        ]
+        logger.info("Clicking publish button...")
+        if not self._click_creator_publish_button():
+            raise RuntimeError(
+                "Cannot find publish button on the page. "
+                "The page structure may have changed."
+            )
+        self._human_wait(3, 5)
 
-        for sel in publish_selectors:
-            publish_btn = self._page.query_selector(sel)
-            if publish_btn:
-                logger.info("Clicking publish button...")
-                publish_btn.click()
-                self._human_wait(3, 5)
+        result = self._current_publish_result()
+        if result["success"]:
+            logger.info("Note published successfully. Current URL: %s", result["url"])
+            return result if return_detail else True
 
-                page_text = self._page.text_content("body") or ""
-                current_url = self._page.url
-                note_id = (
-                    self._extract_note_id_from_url(current_url)
-                    or self._extract_note_id_from_page()
-                )
-                if self._is_publish_success(page_text, current_url, note_id):
-                    logger.info("Note published successfully. Current URL: %s", current_url)
-                    if return_detail:
-                        return {"success": True, "note_id": note_id, "url": current_url}
-                    return True
+        for _ in range(12):
+            if self._click_publish_followup_if_present():
+                self._human_wait(2, 3)
+            else:
+                self._human_wait(2, 3)
+            result = self._current_publish_result()
+            if result["success"]:
+                logger.info("Note published successfully. Current URL: %s", result["url"])
+                return result if return_detail else True
 
-                logger.warning(
-                    "Publish button clicked but no success signal found. Current URL: %s",
-                    current_url,
-                )
-                if return_detail:
-                    return {"success": False, "note_id": note_id, "url": current_url}
-                return False
-
-        raise RuntimeError(
-            "Cannot find publish button on the page. "
-            "The page structure may have changed."
+        logger.warning(
+            "Publish button clicked but no success signal found. Current URL: %s",
+            result["url"],
         )
+        return result if return_detail else False
 
     # ===== Delete Note =====
 

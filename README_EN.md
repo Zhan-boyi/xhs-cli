@@ -186,7 +186,19 @@ xhs favorites --max 10
 ```bash
 xhs post "Title" --image photo1.jpg --image photo2.jpg --content "Body text"
 xhs post "Title" --image photo1.jpg --content "Body text" --json
+xhs post "AI workflow" --image cover.png --content "Body text" --ai-generated --json
 ```
+
+Posting uses the Xiaohongshu creator-center page. Besides the normal
+`www.xiaohongshu.com` session, publishing may need a valid creator-center
+session. If publishing reports that creator login is required, open
+`https://creator.xiaohongshu.com` in your browser, complete login, then run
+`xhs login` to refresh saved cookies.
+
+Use `--ai-generated/--no-ai-generated` to explicitly control the creator-center
+AI content declaration. When omitted, xhs-cli auto-detects common AI keywords in
+the title/body and tries to select the declaration when the page exposes it.
+
 
 ### Other
 
