@@ -31,6 +31,9 @@ pipx install "git+https://github.com/Zhan-boyi/xhs-cli.git@codex/creator-post-ha
 uv tool install "git+https://github.com/Zhan-boyi/xhs-cli.git@codex/creator-post-hardening"
 ```
 
+这个分支会把 Playwright 限制在 `<1.60`。本机验证时，Playwright 1.60
+和当前 Camoufox 组合出现过驱动兼容问题，1.55 路线可正常完成发布。
+
 ## 发布前条件
 
 必须满足：
@@ -204,4 +207,3 @@ openspec/changes/creator-post-hardening/design.md
 openspec/changes/creator-post-hardening/tasks.md
 openspec/specs/creator-posting/spec.md
 ```
-
